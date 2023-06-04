@@ -34,7 +34,7 @@ yarn create react-app folder_name
 # To start the client
 
 ```
-yarn start
+npm start
 ```
 
 > Packages Used
