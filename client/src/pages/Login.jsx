@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { loginBg, logo } from "../../assets";
-import { LoginInput } from "../../components";
-import { FaEnvelope, FaLock, FcGoogle } from "../../assets/icons";
+import { loginBg, logo } from "../assets";
+import { LoginInput } from "../components";
+import { FaEnvelope, FaLock, FcGoogle } from "../assets/icons";
 import { motion } from "framer-motion";
-import { buttonClick } from "../../animations";
+import { buttonClick } from "../animations";
+import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { app } from "../config/firebaseConfig";
 
 const Login = () => {
   const [user, setUser] = useState({
@@ -12,12 +14,24 @@ const Login = () => {
     confirmPassword: "",
   });
 
+  const firebaseAuth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+
   console.log(user);
   const [isSignUp, setIsSignUp] = useState(false);
 
   const handleChange = (e) => {
     setUser({ ...user, [e.target.name]: e.target.value });
   };
+
+  const handleSignInWithGoogle = async () => {
+    await signInWithPopup(firebaseAuth, provider).then((userCred) => {
+      firebaseAuth.onAuthStateChanged((cred) => {
+        cred.getIdToken().then((token) => console.log(token));
+      });
+    });
+  };
+
   return (
     <div className="w-screen h-screen overflow-hidden relative flex">
       {/* background image */}
@@ -108,6 +122,7 @@ const Login = () => {
           <motion.div
             {...buttonClick}
             className="flex items-center justify-center  px-14 py-2 bg-white backdrop-blur-md cursor-pointer rounded-3xl gap-4"
+            onClick={() => handleSignInWithGoogle()}
           >
             <FcGoogle className="text-3xl" />
             <p className="text-base text-headingColor capitalize">
