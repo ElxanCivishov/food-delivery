@@ -1,11 +1,24 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { loginBg, logo } from "../assets";
 import { LoginInput } from "../components";
 import { FaEnvelope, FaLock, FcGoogle } from "../assets/icons";
 import { motion } from "framer-motion";
 import { buttonClick } from "../animations";
-import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
+
+import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
 import { app } from "../config/firebaseConfig";
+import { validateUserJWTToken } from "../api";
+import { setUserDetails } from "../contect/actions/UserActions";
+import { useDispatch, useSelector } from "react-redux";
+import { alertInfo, alertWarning } from "../contect/actions/alertActions";
+import { alertNull } from "../contect/actions/alertActions";
 
 const Login = () => {
   const [user, setUser] = useState({
@@ -13,24 +26,104 @@ const Login = () => {
     password: "",
     confirmPassword: "",
   });
-
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
   const firebaseAuth = getAuth(app);
   const provider = new GoogleAuthProvider();
 
-  console.log(user);
   const [isSignUp, setIsSignUp] = useState(false);
 
   const handleChange = (e) => {
     setUser({ ...user, [e.target.name]: e.target.value });
   };
 
+  const currentUser = useSelector((state) => state.user);
+  const alert = useSelector((state) => state.alert);
+
+  useEffect(() => {
+    if (currentUser) {
+      navigate("/", { replace: true });
+    }
+  }, [currentUser]);
+
   const handleSignInWithGoogle = async () => {
-    await signInWithPopup(firebaseAuth, provider).then((userCred) => {
+    await signInWithPopup(firebaseAuth, provider).then(() => {
       firebaseAuth.onAuthStateChanged((cred) => {
-        cred.getIdToken().then((token) => console.log(token));
+        cred.getIdToken().then((token) => {
+          validateUserJWTToken(token).then((data) => {
+            dispatch(setUserDetails(data)), navigate("/", { replace: true });
+          });
+        });
       });
     });
   };
+
+  const signUpWithEmailPassword = async () => {
+    if (
+      user.email === "" ||
+      user.password === "" ||
+      user.confirmPassword === ""
+    ) {
+      dispatch(alertInfo("Required fields should not be empty!"));
+      setTimeout(() => {
+        dispatch(alertNull());
+      }, 3000);
+    } else if (user.password === user.confirmPassword) {
+      setUser({
+        email: "",
+        password: "",
+        confirmPassword: "",
+      });
+      await createUserWithEmailAndPassword(
+        firebaseAuth,
+        user.email,
+        user.password
+      ).then(() => {
+        firebaseAuth.onAuthStateChanged((cred) => {
+          cred.getIdToken().then((token) => {
+            validateUserJWTToken(token).then((data) => {
+              dispatch(setUserDetails(data)), navigate("/", { replace: true });
+            });
+          });
+        });
+      });
+    } else {
+      dispatch(alertWarning("Password doesn't match!"));
+      setTimeout(() => {
+        dispatch(alertNull());
+      }, 3000);
+    }
+  };
+
+  const signInWithEmailPassword = async () => {
+    const { email, password } = user;
+
+    if (email !== "" && password !== "") {
+      setUser({
+        email: "",
+        password: "",
+      });
+      await signInWithEmailAndPassword(firebaseAuth, email, password).then(
+        () => {
+          firebaseAuth.onAuthStateChanged((cred) => {
+            cred.getIdToken().then((token) => {
+              validateUserJWTToken(token).then((data) => {
+                dispatch(setUserDetails(data)),
+                  navigate("/", { replace: true });
+              });
+            });
+          });
+        }
+      );
+    } else {
+      dispatch(alertInfo("Required fields should not be empty!"));
+      setTimeout(() => {
+        dispatch(alertNull());
+      }, 3000);
+    }
+  };
+
+  if (currentUser) return navigate("/", { replace: true });
 
   return (
     <div className="w-screen h-screen overflow-hidden relative flex">
@@ -86,7 +179,7 @@ const Login = () => {
           )}
           {!isSignUp ? (
             <p className="gap-2  flex">
-              Doesn't have an account:
+              Doesnt have an account:
               <motion.button
                 {...buttonClick}
                 onClick={() => setIsSignUp(true)}
@@ -107,12 +200,25 @@ const Login = () => {
               </motion.button>
             </p>
           )}
-          <motion.button
-            {...buttonClick}
-            className="w-full text-xl px-4 py-2 capitalize cursor-pointer rounded-md bg-red-500 text-white hover:bg-red-600 transition-colors duration-150"
-          >
-            {!isSignUp ? "Sign in" : "Sign up"}
-          </motion.button>
+
+          {isSignUp ? (
+            <motion.button
+              {...buttonClick}
+              onClick={() => signUpWithEmailPassword()}
+              className="w-full text-xl px-4 py-2 capitalize cursor-pointer rounded-md bg-red-500 text-white hover:bg-red-600 transition-colors duration-150"
+            >
+              Sign up
+            </motion.button>
+          ) : (
+            <motion.button
+              {...buttonClick}
+              onClick={() => signInWithEmailPassword()}
+              className="w-full text-xl px-4 py-2 capitalize cursor-pointer rounded-md bg-red-500 text-white hover:bg-red-600 transition-colors duration-150"
+            >
+              Sign in
+            </motion.button>
+          )}
+
           <div className="flex items-center justify-between gap-8">
             <div className="w-24 bg-white rounded-md  h-[1px]"></div>
             <div className="text-white text-2xl font-semibold">or</div>
